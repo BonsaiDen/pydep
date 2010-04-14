@@ -281,10 +281,17 @@ if not QUIET:
            % (NAME, len(ALL_MODULES), len(MODULES), len(EXTRA_MODULES), PARSE_TIME)
     
     print ''
-    print '  %s   ##   dependencies' % ('module name'.rjust(INFO_LENGTH, ' '))
+    print '  %s   IN  OUT   dependencies' % ('module name'.rjust(INFO_LENGTH, ' '))
     print '-' * 80
     for module, count in BY_NUMBER:
-        info = '  %s   %2d   ' % (module.rjust(INFO_LENGTH, ' '), count)
+        others = 0
+        for i in DEPS:
+            if module in DEPS[i]:
+                others += 1
+    
+        info = '  %s   %2d   %2d   ' % (module.rjust(INFO_LENGTH, ' '),
+                                        count, others)
+        
         deps = [i for i in DEPS[module]]
         for i, d in enumerate(deps):
             if not d in USED[module]:
