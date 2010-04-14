@@ -16,14 +16,14 @@ Examples::
     pydep ~/projects/foo os time sys
     pydep ~/projects/bar -g -
 
-| **Examples of rendered graphs:**
+| **Examples of rendered graphs(.svg):**
 | Atarashii_
-| Python2.6_ (Warning 3.1MiB PNG!)
+| Python2.6_ (Warning 11000x6000 Pixels!)
 | Tweepy_
 
-.. _Atarashii: http://github.com/BonsaiDen/pydep/blob/master/atarashii.png
-.. _Python2.6: http://github.com/BonsaiDen/pydep/blob/master/python26.png
-.. _Tweepy: http://github.com/BonsaiDen/pydep/blob/master/tweepy.png
+.. _Atarashii: http://github.com/BonsaiDen/pydep/blob/master/atarashii.svg
+.. _Python2.6: http://github.com/BonsaiDen/pydep/blob/master/python26.svg
+.. _Tweepy: http://github.com/BonsaiDen/pydep/blob/master/tweepy.svg
 
 
 | **Graph information**
