@@ -16,13 +16,13 @@ Examples::
     pydep ~/projects/foo os time sys
     pydep ~/projects/bar -g -
 
-| **Examples of rendered graphs(.svg):**
+| **Examples of rendered graphs(Right click and "Save as..."):**
 | Atarashii_
 | Python2.6_ (Warning 11000x6000 Pixels!)
 | Tweepy_
 
 .. _Atarashii: http://github.com/BonsaiDen/pydep/blob/master/atarashii.svg
-.. _Python2.6: http://github.com/BonsaiDen/pydep/blob/master/python26.svg
+.. _Python2.6: http://github.com/BonsaiDen/pydep/blob/master/python2.6.svg
 .. _Tweepy: http://github.com/BonsaiDen/pydep/blob/master/tweepy.svg
 
 
