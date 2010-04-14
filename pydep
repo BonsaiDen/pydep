@@ -319,13 +319,15 @@ with open('%s.dot' % NAME, 'wb') as f:
             if module in DEPS[i]:
                 others += 1
         
+        me = '*' if module in DEPS[module] else ''
+        
         size = (count / MAXIMUM_DEPS) * 2 + 0.5
-        font = 10 + (count / MAXIMUM_DEPS) * 20
+        font = 10 + (count / MAXIMUM_DEPS) * 24
         f.write(('%s [group="%s", width="%1.2f", height="%1.2f", color="#%s", '
                 'fontsize="%d", style="filled,bold", fillcolor="#%s", '
                 'fontcolor="#%s", label="%s"];\n') \
                 % (module, group, size, size, color, font, color, textcolor,
-                   '%s[%d](%d)' % (module, count, others)))
+                   '%s%s[%d](%d)' % (module, me, count, others,)))
     
     # Edges
     for e in DEPS:
