@@ -247,11 +247,15 @@ for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
 BY_NUMBER = sorted([(i, len(DEPS[i])) for i in DEPS],
                    key = lambda i: i[1], reverse = True)
 
-if NOGROUP:
-    PLAIN = sorted({}.fromkeys([i for i in DEPS]).keys())
 
-else:
-    PLAIN = sorted({}.fromkeys([i.split(GROUPCHAR)[0] for i in DEPS]).keys())
+# Grouping
+def get_group(module):
+    if module == '__init__':
+        return module
+    
+    return module if NOGROUP else module.lstrip(GROUPCHAR).split(GROUPCHAR)[0]
+
+PLAIN = sorted({}.fromkeys([get_group(i) for i in DEPS]).keys())
 
 MAXIMUM_DEPS = max(1.0, max([i[1] for i in BY_NUMBER]) + 0.0)
 
@@ -310,7 +314,7 @@ with open('%s.dot' % NAME, 'wb') as f:
     
     # Nodes
     for module, count in BY_NUMBER:
-        group = module if NOGROUP else module.split(GROUPCHAR)[0]
+        group = get_group(module)
         color = COLORS[PLAIN.index(group)]
         textcolor = TEXT_COLORS[PLAIN.index(group)]
         
@@ -332,8 +336,7 @@ with open('%s.dot' % NAME, 'wb') as f:
     # Edges
     for e in DEPS:
         for i in DEPS[e]:
-            group = i if NOGROUP else i.split(GROUPCHAR)[0]
-            color = PLAIN.index(group)
+            color = PLAIN.index(get_group(i))
             f.write('%s -> %s [color="#%s"];\n' % (i, e, COLORS[color]))
     
     f.write('}\n')
