@@ -31,7 +31,7 @@ if len(sys.argv) < 2 or sys.argv[1] == '-h':
     print ''
     print 'Usage: pydep dir [options] [extramodules]'
     print '    -q = Quiet mode.'
-    print '    -n = Don\'t generate .dot file'
+    print '    -n = Don\'t generate the graph'
     print '    -u = Disable grouping'
     print '    -g = Group character(by default _ is used to split module names)'
     print ''

@@ -7,7 +7,7 @@ Usage::
 
     pydep dir [options] [extramodules]
     -q = Quiet mode
-    -n = Don't generate .dot file
+    -n = Don't generate the graph
     -u = Disable grouping
     -g = Group character(by default _ is used to split module names)
 
