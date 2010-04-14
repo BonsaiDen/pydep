@@ -16,9 +16,9 @@ Examples::
     pydep ~/projects/foo os time sys
     pydep ~/projects/bar -g -
 
-Example of a generated graph_.
+Example_ of a generated graph.
 
-.. _graph: http://github.com/BonsaiDen/pydep/blob/master/example.png
+.. _Example: http://github.com/BonsaiDen/pydep/blob/master/example.png
 
 Contributing
 ------------
