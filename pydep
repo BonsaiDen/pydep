@@ -331,11 +331,16 @@ with open('%s.dot' % NAME, 'wb') as f:
         
         size = ((count + others / 3.5) / MAXIMUM_DEPS) * 2 + 0.5
         font = 10 + ((count + others / 3.5) / MAXIMUM_DEPS) * 24
+        
+        
+        others = '(%d)' % others if others != 0 else ''
+        count = '[%d]' % count if count != 0 else ''
+        
         f.write(('%s [group="%s", width="%1.2f", height="%1.2f", color="#%s", '
                 'fontsize="%d", style="filled,bold", fillcolor="#%s", '
                 'fontcolor="#%s", label="%s", shape="%s"];\n') \
                 % (module, group, size, size, color, font, color, textcolor,
-                   '%s%s[%d](%d)' % (module, me, count, others), shape))
+                   '%s%s%s%s' % (module, me, count, others), shape))
     
     # Edges
     for e in DEPS:
