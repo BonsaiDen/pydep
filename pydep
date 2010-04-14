@@ -228,7 +228,7 @@ for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
         lines = [i.strip() for i in data.split('\n')]
         for i, line in enumerate(lines):
             if line.find('#') != -1:
-                lines[i] = line[line.find('#')+1:]
+                lines[i] = line[:line.find('#')]
         
         lines = [i.split(' ') for i in lines if i.startswith('import') or i.startswith('from')]
         
