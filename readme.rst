@@ -27,10 +27,17 @@ Examples::
 
 
 **Information in the Graph**
-Nodes can have 3 attributes: 
-* [number] which show the number of modules the node depends on.
-* (number) which show how many modules depend on this node.
-* *(Asterisks) indicates that this node imports iteself
+Nodes can have 3 types of information:
+
+- [number] which show the number of modules the node depends on.
+- (number) which show how many modules depend on this node.
+- \*(Asterisks) indicates that this node imports iteself
+
+Edges can have 3 types of arrows:
+
+- Arrow, indicates a direct import via "import foo"
+- Dot, indicates a partly import via "from foo import bar"
+- Empty box, it seems that this import isn't used.
 
 
 Contributing
