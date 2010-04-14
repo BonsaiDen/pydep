@@ -10,6 +10,7 @@ Usage::
     -n = Don't generate the graph
     -u = Disable grouping
     -g = Group character(by default _ is used to split module names)
+    -d = Density of the graph(10=very dense, 0=very loose, default=9)
 
 Examples::
 
