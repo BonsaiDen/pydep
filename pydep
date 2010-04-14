@@ -250,7 +250,7 @@ BY_NUMBER = sorted([(i, len(DEPS[i])) for i in DEPS],
 
 # Grouping
 def get_group(module):
-    if module == '__init__':
+    if module[0:2] == '__' and module[-2:] == '__':
         return module
     
     return module if NOGROUP else module.lstrip(GROUPCHAR).split(GROUPCHAR)[0]
