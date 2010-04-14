@@ -26,6 +26,9 @@ import colorsys
 import sys
 import tokenize
 import cStringIO
+import time
+
+PARSE_START = time.time()
 
 
 # Check Arguments --------------------------------------------------------------
@@ -132,27 +135,41 @@ def remove_string_comments(data):
 
 # Parse dependencies -----------------------------------------------------------
 # ------------------------------------------------------------------------------
-def add_import(line, dependecies):
+def add_import(line, dependecies, names, partly = None):
+    mod = None
     parts = line[1].split('.')
     if len(parts) > 1:
         # from module.foo import ...
         if parts[0] == NAME and parts[1] in MODULES:
-            dependecies.append(parts[1])
+            mod = parts[1]
         
         # from extra.something import ...
         elif parts[0] in EXTRA_MODULES:
-            dependecies.append(parts[0])
+            mod = parts[0]
     
     # from main import ...
-    elif line[1] == NAME and line[3] in MODULES:
-        dependecies.append(line[3])
+    elif line[1] == NAME and line[3] in MODULES:   
+        mod = line[3]
     
-    # from module import ...
     elif line[1] in ALL_MODULES:
-        dependecies.append(line[1])
+        mod = line[1]
+    
+    if mod is not None:
+        if len(line) > 3 and line[2] == 'as':
+            names[mod] = line[3]
+        
+        else:
+            names[mod] = mod
+        
+        if partly is not None:
+            partly[mod] = True
+        
+        dependecies.append(mod)
 
 
 DEPS = {}
+PARTLY = {}
+USED = {}
 for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
     if os.path.isdir(p) or not p.endswith('.py'):
         continue
@@ -163,14 +180,44 @@ for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
         lines = [i.strip() for i in data.split('\n')]
         lines = [i.split(' ') for i in lines if i.startswith('import') or i.startswith('from')]
         dependecies = []
+        names = {}
+        partly = {}
         for line in lines:
-            if line[0] == 'import':
+            if len(line) > 2 and line[2] == 'as':
+                add_import(line, dependecies, names)
+        
+            elif line[0] == 'import':
                 for m in [i.strip() for i in ''.join(line[1:]).split(',')]:
-                    add_import(['import', m], dependecies)
+                    add_import(['import', m], dependecies, names)
             
             elif line[0] == 'from' and line[2] == 'import':
-                add_import(line, dependecies)
+                add_import(line, dependecies, names, partly)
+                
         
+        # Check for usage(this is very basic, doesn't handle scope)
+        # And it doesn't handle 'from foo import bla' at the moment
+        used = []
+        codelines = [' ' + i.strip() for i in data.split('\n')]
+        for mod, name in names.iteritems():
+            if mod in partly:
+                used.append(mod)
+                
+            else:
+                for c in codelines:
+                    for l in '()[]':
+                        c = c.replace(l, '')
+                    
+                    c = c.replace('self.', '.')
+                    pos = c.find(name + '.')
+                    try:
+                        if pos != -1 and c[pos - 1] != '.':
+                            used.append(mod)
+                    
+                    except:
+                        pass
+        
+        PARTLY[e] = partly
+        USED[e] = used
         DEPS[e] = sorted({}.fromkeys(dependecies).keys())
         
         # Only add extra modules to the graph if they are acutally imported
@@ -198,18 +245,28 @@ MAXIMUM_DEPS = max(1.0, max([i[1] for i in BY_NUMBER]) + 0.0)
 
 # Show dependency listing ------------------------------------------------------
 # ------------------------------------------------------------------------------
+PARSE_TIME = time.time() - PARSE_START
+
 if not QUIET:
     INFO_LENGTH = max(11, max([len(i) for i in DEPS]))
     print '\n'
-    print 'Showing dependencies for "%s" %d(%d+%d) modules in total.' \
-           % (NAME, len(ALL_MODULES), len(MODULES), len(EXTRA_MODULES))
+    print 'Showing dependencies for "%s" %d(%d+%d) modules in total\nParsed in %1.2f seconds.' \
+           % (NAME, len(ALL_MODULES), len(MODULES), len(EXTRA_MODULES), PARSE_TIME)
     
     print ''
     print '  %s   ##   dependencies' % ('module name'.rjust(INFO_LENGTH, ' '))
     print '-' * 80
     for module, count in BY_NUMBER:
         info = '  %s   %2d   ' % (module.rjust(INFO_LENGTH, ' '), count)
-        deplist = textwrap.wrap(', '.join(DEPS[module]), 80 - len(info))
+        deps = [i for i in DEPS[module]]
+        for i, d in enumerate(deps):
+            if not d in USED[module]:
+                deps[i] = deps[i] + '?'
+        
+            if d in PARTLY[module]:
+                deps[i] = deps[i] + '*'     
+        
+        deplist = textwrap.wrap(', '.join(deps), 80 - len(info))
         if len(deplist) > 1:
             deplist.append('')
         
@@ -244,6 +301,7 @@ for h in range(0, COLORS_COUNT):
 
 # Generate the .dot file -------------------------------------------------------
 # ------------------------------------------------------------------------------
+RENDER_START = time.time()
 with open('%s.dot' % NAME, 'wb') as f:
     f.write('digraph dependencies {\n')
     f.write('nodesep=0.1\n')
@@ -268,10 +326,9 @@ with open('%s.dot' % NAME, 'wb') as f:
         size = ((count + others / 3.5) / MAXIMUM_DEPS) * 2 + 0.5
         font = 10 + ((count + others / 3.5) / MAXIMUM_DEPS) * 24
         
-        
         others = '(%d)' % others if others != 0 else ''
         count = '[%d]' % count if count != 0 else ''
-        
+                
         f.write(('%s [group="%s", width="%1.2f", height="%1.2f", color="#%s", '
                 'fontsize="%d", style="filled,bold", fillcolor="#%s", '
                 'fontcolor="#%s", label="%s", shape="%s"];\n') \
@@ -281,8 +338,11 @@ with open('%s.dot' % NAME, 'wb') as f:
     # Edges
     for e in DEPS:
         for i in DEPS[e]:
+            arrow = 'normal' if i in USED[e] else 'obox'
+            arrow = arrow if not i in PARTLY[e] else 'dot'
             color = PLAIN.index(get_group(i))
-            f.write('%s -> %s [color="#%s"];\n' % (i, e, COLORS[color]))
+            f.write('%s -> %s [color="#%s", arrowhead="%s"];\n' \
+                    % (i, e, COLORS[color], arrow))
     
     f.write('}\n')
 
@@ -291,7 +351,7 @@ with open('%s.dot' % NAME, 'wb') as f:
 try:
     print 'Generating Graph...',
     subprocess.call(['dot', '-Tsvg', '%s.dot' % NAME, '-o', '%s.svg' % NAME])
-    print 'done!'
+    print 'done(%1.2f seconds)' % (time.time() - RENDER_START)
 
 except OSError:
     print 'ERROR: Could not generate .svg due to missing "dot".'
