@@ -39,8 +39,8 @@ Edges can have 3 types of arrows:
 - Dot, indicates a partly import via "from foo import bar"
 - Empty box, it seems that this import isn't used.
 
-**Note:** Due to the dynamic nature of Python some of the edge information may be 
-incorrect.
+**Note:** Due to the dynamic nature of Python some of the edge information might
+ be incorrect.
 
 
 Contributing
