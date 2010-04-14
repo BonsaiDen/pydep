@@ -197,6 +197,26 @@ ALL_MODULES = MODULES + EXTRA_MODULES
 
 # Parse dependencies -----------------------------------------------------------
 # ------------------------------------------------------------------------------
+def add_import(line, dependecies):
+    parts = line[1].split('.')
+    if len(parts) > 1:
+        # from module.foo import ...
+        if parts[0] == NAME and parts[1] in MODULES:
+            dependecies.append(parts[1])
+        
+        # from extra.something import ...
+        elif parts[0] in EXTRA_MODULES:
+            dependecies.append(parts[0])
+    
+    # from main import ...
+    elif line[1] == NAME and line[3] in MODULES:
+        dependecies.append(line[3])
+    
+    # from module import ...
+    elif line[1] in ALL_MODULES:
+        dependecies.append(line[1])
+
+
 DEPS = {}
 for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
     if os.path.isdir(p) or not p.endswith('.py'):
@@ -206,34 +226,20 @@ for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
     with open(p, 'rb') as f:
         data = clear_strings(f.read())
         lines = [i.strip() for i in data.split('\n')]
+        for i, line in enumerate(lines):
+            if line.find('#') != -1:
+                lines[i] = line[line.find('#')+1:]
+        
         lines = [i.split(' ') for i in lines if i.startswith('import') or i.startswith('from')]
         
         dependecies = []
         for line in lines:
-            
-            # import module
             if line[0] == 'import':
-                if line[1] in ALL_MODULES:
-                    dependecies.append(line[1])
+                for m in [i.strip() for i in ''.join(line[1:]).split(',')]:
+                    add_import(['import', m], dependecies)
             
             elif line[0] == 'from' and line[2] == 'import':
-                parts = line[1].split('.')
-                if len(parts) > 1:
-                    # from module.foo import ...
-                    if parts[0] == NAME and parts[1] in MODULES:
-                        dependecies.append(parts[1])
-                    
-                    # from extra.something import ...
-                    elif parts[0] in EXTRA_MODULES:
-                        dependecies.append(parts[0])
-                
-                # from main import ...
-                elif line[1] == NAME and line[3] in MODULES:
-                    dependecies.append(line[3])
-                
-                # from module import ...
-                elif line[1] in ALL_MODULES:
-                    dependecies.append(line[1])
+                add_import(line, dependecies)
         
         DEPS[e] = sorted({}.fromkeys(dependecies).keys())
         
