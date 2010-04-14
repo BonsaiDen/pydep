@@ -26,8 +26,9 @@ Examples::
 .. _Tweepy: http://github.com/BonsaiDen/pydep/blob/master/tweepy.svg
 
 
-| **Graph information**
-| Nodes can have 3 types of information:
+Graph information
+-----------------
+Nodes can have 3 types of information:
 
 - [number] which show the number of modules the node depends on.
 - (number) which show how many modules depend on this node.
