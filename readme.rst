@@ -26,6 +26,13 @@ Examples::
 .. _Tweepy: http://github.com/BonsaiDen/pydep/blob/master/tweepy.png
 
 
+**Information in the Graph**
+Nodes can have 3 attributes: 
+* [number] which show the number of modules the node depends on.
+* (number) which show how many modules depend on this node.
+* *(Asterisks) indicates that this node imports iteself
+
+
 Contributing
 ------------
 
