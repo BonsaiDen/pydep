@@ -18,7 +18,7 @@ Examples::
 
 Example of a generated graph_.
 
-.. _graph: http://www.github.com/BonsaiDen/pydep/master/raw/example.png
+.. _graph: http://github.com/BonsaiDen/pydep/blob/master/example.png
 
 Contributing
 ------------
