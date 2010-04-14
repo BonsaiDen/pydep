@@ -13,9 +13,9 @@
 #  You should have received a copy of the GNU General Public License along with
 #  pydep. If not, see <http://www.gnu.org/licenses/>.
 
-'''pydep - A dependency listing and graphing tool.
+'''pydep - A simple dependency listing and graphing tool.
 
-pydep generates dependency listings and graphs for Python modules.
+pydep generates simple dependency listings and graphs for Python modules.
 
 '''
 

@@ -1,7 +1,7 @@
 pydep
 =====
 
-**pydep** generates dependency listings and graphs for Python modules.
+**pydep** generates simple dependency listings and graphs for Python modules.
 
 Usage::
 
