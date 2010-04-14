@@ -18,7 +18,7 @@ Examples::
 
 | **Examples of rendered graphs:**
 | Atarashii_
-| Python2.6_ (Warning 1.8MiB PNG!)
+| Python2.6_ (Warning 3.1MiB PNG!)
 | Tweepy_
 
 .. _Atarashii: http://github.com/BonsaiDen/pydep/blob/master/atarashii.png
