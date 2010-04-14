@@ -156,7 +156,7 @@ def remove_string_comments(data):
 
 # Parse dependencies -----------------------------------------------------------
 # ------------------------------------------------------------------------------
-def add_import(line, dependecies, names, partly = None):
+def add_import(line, dependecies, names, partly=None, stars=None):
     mod = None
     parts = line[1].split('.')
     if len(parts) > 1:
@@ -181,9 +181,13 @@ def add_import(line, dependecies, names, partly = None):
         
         else:
             names[mod] = mod
+            
+        if stars is not None:
+            if len(line) > 3 and line[3] == '*':
+                stars[mod] = True
         
-        if partly is not None:
-            partly[mod] = True
+            elif partly is not None:
+                partly[mod] = True
         
         dependecies.append(mod)
 
@@ -191,11 +195,13 @@ def add_import(line, dependecies, names, partly = None):
 DEPS = {}
 PARTLY = {}
 USED = {}
+STARS = {}
 for e, p in [(e.split('.')[0].replace('-', '_'), PATH + '/' + e) for e in FILES]:
     if os.path.isdir(p):
         DEPS[e] = []
         USED[e] = []
-        PARTLY[e] = []
+        PARTLY[e] = {}
+        STARS[e] = []
         continue
         
     elif not p.endswith('.py'):
@@ -208,6 +214,7 @@ for e, p in [(e.split('.')[0].replace('-', '_'), PATH + '/' + e) for e in FILES]
         lines = [i.split(' ') for i in lines if i.startswith('import') or i.startswith('from')]
         dependecies = []
         names = {}
+        stars = {}
         partly = {}
         for line in lines:
             if len(line) > 2 and line[2] == 'as':
@@ -218,7 +225,7 @@ for e, p in [(e.split('.')[0].replace('-', '_'), PATH + '/' + e) for e in FILES]
                     add_import(['import', m], dependecies, names)
             
             elif line[0] == 'from' and line[2] == 'import':
-                add_import(line, dependecies, names, partly)
+                add_import(line, dependecies, names, partly, stars)
                 
         
         # Check for usage(this is very basic, doesn't handle scope)
@@ -244,6 +251,7 @@ for e, p in [(e.split('.')[0].replace('-', '_'), PATH + '/' + e) for e in FILES]
                         pass
         
         PARTLY[e] = partly
+        STARS[e] = stars
         USED[e] = used
         DEPS[e] = sorted({}.fromkeys(dependecies).keys())
         
@@ -298,7 +306,10 @@ if not QUIET:
                 deps[i] = deps[i] + '?'
         
             if d in PARTLY[module]:
-                deps[i] = deps[i] + '*'     
+                deps[i] = deps[i] + '~'
+            
+            if d in STARS[module]:
+                deps[i] = deps[i] + '*'
         
         deplist = textwrap.wrap(', '.join(deps), 80 - len(info))
         if len(deplist) > 1:
@@ -347,11 +358,21 @@ with open('%s.dot' % NAME, 'wb') as f:
         textcolor = TEXT_COLORS[PLAIN.index(group)]
         
         others = 0
+        unused = ''
+        star = ''
         for i in DEPS:
             if module in DEPS[i]:
                 others += 1
+                
+        for i in DEPS[module]:
+            if not i in USED[module]:
+                unused = '?'
+                
+            if i in STARS[module]:
+                star = '*'
         
-        me = '*' if module in DEPS[module] else ''
+        me = '!' if module in DEPS[module] else ''
+        part = '~' if len(PARTLY[module].keys()) > 0 else ''
         shape = 'doublecircle' if count == 0 else 'circle'
         
         if others == 0:
@@ -370,13 +391,15 @@ with open('%s.dot' % NAME, 'wb') as f:
                 'fontsize="%d", style="filled,bold", fillcolor="#%s", '
                 'fontcolor="#%s", label="%s", shape="%s"];\n') \
                 % (module, group, size, size, color, font, color, textcolor,
-                   '%s%s\\n%s%s' % (module, me, count, others), shape))
+                   '%s%s\\n%s%s%s%s%s' % (module, me, part, unused, star, 
+                                        count, others), shape))
     
     # Edges
     for e in DEPS:
         for i in DEPS[e]:
             arrow = 'normal' if i in USED[e] else 'obox'
             arrow = arrow if not i in PARTLY[e] else 'dot'
+            arrow = arrow if not i in STARS[e] else 'box'
             color = PLAIN.index(get_group(i))
             f.write('%s -> %s [color="#%s", arrowhead="%s"];\n' \
                     % (i, e, COLORS[color], arrow))
@@ -386,7 +409,7 @@ with open('%s.dot' % NAME, 'wb') as f:
 # Try to generate the SVG ------------------------------------------------------
 # ------------------------------------------------------------------------------
 try:
-    print 'Generating Graph...',
+    print 'Generating graph...',
     subprocess.call(['dot', '-Tsvg', '%s.dot' % NAME, '-o', '%s.svg' % NAME])
     print 'done(%1.2f seconds)' % (time.time() - RENDER_START)
 
