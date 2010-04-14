@@ -40,6 +40,7 @@ if len(sys.argv) < 2 or sys.argv[1] == '-h':
     print '    -n = Don\'t generate the graph'
     print '    -u = Disable grouping'
     print '    -g = Group character(by default _ is used to split module names)'
+    print '    -d = Density of the graph(10=very dense, 0=very loose, default=9)'
     print ''
     print 'Examples: pydep ~/projects/foo os time sys'
     print  '         pydep ~/projects/bar -g .'
@@ -78,6 +79,17 @@ try:
 except (ValueError, IndexError):
     GROUPCHAR = '_'
 
+try:
+    DENSITY = sys.argv.index('-d')
+    sys.argv.pop(DENSITY)
+    DENSITY = int(sys.argv[DENSITY])
+    if not DENSITY in range(0, 11):
+        print 'ERROR: Invalid densitiy(must be in range 0-10).'
+        exit(1)
+
+except ValueError:
+    DENSITY = 9
+
 
 if len(sys.argv) < 2:
     print 'ERROR: No directory specified.'
@@ -94,7 +106,16 @@ EXTRA_MODULES = sys.argv[2:]
 
 
 # Get modules ------------------------------------------------------------------
-MODULES = [i.split('.')[0] for i in FILES if i.endswith('.py')]
+MODULES = []
+for i in FILES:
+    if os.path.isdir(PATH + '/' + i):
+        if os.path.exists(PATH + '/' + i + '/__init__.py'):
+            MODULES.append(i)
+    
+    elif i.endswith('.py'):
+        MODULES.append(i.split('.')[0].replace('-', '_'))
+
+
 if len(MODULES) == 0:
     print 'ERROR: No modules in the directory'
     exit(2)
@@ -170,8 +191,14 @@ def add_import(line, dependecies, names, partly = None):
 DEPS = {}
 PARTLY = {}
 USED = {}
-for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
-    if os.path.isdir(p) or not p.endswith('.py'):
+for e, p in [(e.split('.')[0].replace('-', '_'), PATH + '/' + e) for e in FILES]:
+    if os.path.isdir(p):
+        DEPS[e] = []
+        USED[e] = []
+        PARTLY[e] = []
+        continue
+        
+    elif not p.endswith('.py'):
         continue
     
     # Read file and check for imports
@@ -304,7 +331,7 @@ for h in range(0, COLORS_COUNT):
 RENDER_START = time.time()
 with open('%s.dot' % NAME, 'wb') as f:
     f.write('digraph dependencies {\n')
-    f.write('nodesep=0.1\n')
+    f.write('nodesep=%1.1f\n' % (1.0 - DENSITY / 10.0))
     
     # Nodes
     for module, count in BY_NUMBER:
@@ -324,16 +351,19 @@ with open('%s.dot' % NAME, 'wb') as f:
             shape = 'doubleoctagon'
         
         size = ((count + others / 3.5) / MAXIMUM_DEPS) * 2 + 0.5
-        font = 10 + ((count + others / 3.5) / MAXIMUM_DEPS) * 24
+        font = 18 + ((count + others / 2.0) / MAXIMUM_DEPS) * 26
+        
+        if shape == 'doubleoctagon':
+            font = font * 1.25
+            size = size * 1.35
         
         others = '(%d)' % others if others != 0 else ''
         count = '[%d]' % count if count != 0 else ''
-                
         f.write(('%s [group="%s", width="%1.2f", height="%1.2f", color="#%s", '
                 'fontsize="%d", style="filled,bold", fillcolor="#%s", '
                 'fontcolor="#%s", label="%s", shape="%s"];\n') \
                 % (module, group, size, size, color, font, color, textcolor,
-                   '%s%s%s%s' % (module, me, count, others), shape))
+                   '%s%s\\n%s%s' % (module, me, count, others), shape))
     
     # Edges
     for e in DEPS:
