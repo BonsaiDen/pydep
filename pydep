@@ -119,8 +119,8 @@ def clear_strings(data):
     for es in strings:
         start, end, string, big = es
         ess = data[start + 1:end - 1]
-        data = data[:start + 1] + ' ' + data[end - 1:]
-
+        data = data[:start + 1] + ' ' * len(ess) + data[end - 1:]
+    
     return data
 
 
@@ -177,6 +177,10 @@ if len(sys.argv) < 2:
     exit(1)
 
 PATH = sys.argv[1]
+if not os.path.exists(PATH):
+    print 'ERROR: Directoy does not exists.'
+    exit(1) 
+
 NAME = PATH.strip('/').split('/')[-1]
 FILES = os.listdir(PATH)
 EXTRA_MODULES = sys.argv[2:]
@@ -199,9 +203,11 @@ for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
         continue
     
     # Read file and check for imports
-    with open(p, 'rb') as f:    
+    with open(p, 'rb') as f:
         data = clear_strings(f.read())
-        lines = [i.strip().split(' ') for i in data.split('\n')]
+        lines = [i.strip() for i in data.split('\n')]
+        lines = [i.split(' ') for i in lines if i.startswith('import') or i.startswith('from')]
+        
         dependecies = []
         for line in lines:
             
@@ -229,7 +235,6 @@ for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
                 elif line[1] in ALL_MODULES:
                     dependecies.append(line[1])
         
-        print e, dependecies
         DEPS[e] = sorted({}.fromkeys(dependecies).keys())
         
         # Only add extra modules to the graph if they are acutally imported
@@ -309,12 +314,18 @@ with open('%s.dot' % NAME, 'wb') as f:
         color = COLORS[PLAIN.index(group)]
         textcolor = TEXT_COLORS[PLAIN.index(group)]
         
+        others = 0
+        for i in DEPS:
+            if module in DEPS[i]:
+                others += 1
+        
         size = (count / MAXIMUM_DEPS) * 2 + 0.5
         font = 10 + (count / MAXIMUM_DEPS) * 20
         f.write(('%s [group="%s", width="%1.2f", height="%1.2f", color="#%s", '
                 'fontsize="%d", style="filled,bold", fillcolor="#%s", '
-                'fontcolor="#%s"];\n') \
-                % (module, group, size, size, color, font, color, textcolor))
+                'fontcolor="#%s", label="%s"];\n') \
+                % (module, group, size, size, color, font, color, textcolor,
+                   '%s[%d](%d)' % (module, count, others)))
     
     # Edges
     for e in DEPS:
