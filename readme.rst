@@ -19,7 +19,7 @@ Examples::
 
 | **Examples of rendered graphs(Right click and "Save as..."):**
 | Atarashii_
-| Python2.6_ (Warning 11000x6000 Pixels!)
+| Python2.6_ (Warning 14000x8000 Pixels!)
 | Tweepy_
 
 .. _Atarashii: http://github.com/BonsaiDen/pydep/blob/master/atarashii.svg
