@@ -324,14 +324,18 @@ with open('%s.dot' % NAME, 'wb') as f:
                 others += 1
         
         me = '*' if module in DEPS[module] else ''
+        shape = 'doublecircle' if count == 0 else 'circle'
         
-        size = ((count + others / 2.5) / MAXIMUM_DEPS) * 2 + 0.5
-        font = 10 + ((count + others / 2.5) / MAXIMUM_DEPS) * 24
+        if others == 0:
+            shape = 'doubleoctagon'
+        
+        size = ((count + others / 3.5) / MAXIMUM_DEPS) * 2 + 0.5
+        font = 10 + ((count + others / 3.5) / MAXIMUM_DEPS) * 24
         f.write(('%s [group="%s", width="%1.2f", height="%1.2f", color="#%s", '
                 'fontsize="%d", style="filled,bold", fillcolor="#%s", '
-                'fontcolor="#%s", label="%s"];\n') \
+                'fontcolor="#%s", label="%s", shape="%s"];\n') \
                 % (module, group, size, size, color, font, color, textcolor,
-                   '%s%s[%d](%d)' % (module, me, count, others)))
+                   '%s%s[%d](%d)' % (module, me, count, others), shape))
     
     # Edges
     for e in DEPS:
