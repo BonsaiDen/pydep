@@ -26,7 +26,106 @@ import colorsys
 import sys
 
 
+# Return all strings in a python file ------------------------------------------
+def get_strings(data):
+    strings = []
+    mode = 0
+    esc = False
+    start = 0
+    string = ''
+    bigmode = 0
+    comment = False
+    e = 0
+    while e < len(data):
+        i = data[e]
+        
+        if i == '#' and mode == 0 and bigmode == 0:
+            comment = True
+        
+        if comment and i == "\n":
+            comment = False
+        
+        if comment:
+            e += 1
+            continue
+        
+        if e < len(data) - 3 and mode == 0:
+            tri = data[e:e + 3]
+            if bigmode == 0 and tri == '"""':
+                string = ''
+                start = e
+                e += 3
+                bigmode = 1
+            
+            elif bigmode == 1 and tri == '"""':
+                strings.append((start, e + 2, string, True))
+                e += 3
+                bigmode = 0
+                continue
+            
+            elif bigmode == 0 and tri == "'''":
+                start = e
+                string = ''
+                e += 3
+                bigmode = 2
+            
+            elif bigmode == 2 and tri == "'''":
+                strings.append((start, e + 2, string, True))
+                e += 3
+                bigmode = 0
+                continue
+        
+        if bigmode != 0:
+            string += data[e]
+            e += 1
+            continue
+        
+        if esc is False:
+            if mode == 0 and i == '"':
+                start = e
+                string = ''
+                mode = 1
+            
+            elif mode == 1 and i == '"':
+                strings.append((start, e + 1, string + '"', False))
+                mode = 0
+            
+            elif mode == 0 and i == '\'':
+                start = e
+                string = ''
+                mode = 2
+            
+            elif mode == 2 and i == '\'':
+                strings.append((start, e + 1, string + '\'', False))
+                mode = 0
+            
+            string += i
+        
+        else:
+            string += i
+        
+        if i == '\\' and not esc:
+            esc = True
+        
+        else:
+            esc = False
+        
+        e += 1
+    
+    return strings
+
+def clear_strings(data):
+    strings = get_strings(data)
+    for es in strings:
+        start, end, string, big = es
+        ess = data[start + 1:end - 1]
+        data = data[:start + 1] + ' ' + data[end - 1:]
+
+    return data
+
+
 # Check Arguments --------------------------------------------------------------
+# ------------------------------------------------------------------------------
 if len(sys.argv) < 2 or sys.argv[1] == '-h':
     print ''
     print 'Usage: pydep dir [options] [extramodules]'
@@ -101,7 +200,8 @@ for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
     
     # Read file and check for imports
     with open(p, 'rb') as f:    
-        lines = [i.strip().split(' ') for i in f.read().split('\n')]
+        data = clear_strings(f.read())
+        lines = [i.strip().split(' ') for i in data.split('\n')]
         dependecies = []
         for line in lines:
             
@@ -129,6 +229,7 @@ for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
                 elif line[1] in ALL_MODULES:
                     dependecies.append(line[1])
         
+        print e, dependecies
         DEPS[e] = sorted({}.fromkeys(dependecies).keys())
         
         # Only add extra modules to the graph if they are acutally imported
