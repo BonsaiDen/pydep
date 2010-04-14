@@ -1,0 +1,236 @@
+#!/usr/bin/python
+#
+#  pydep is free software: you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  pydep is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License along with
+#  pydep. If not, see <http://www.gnu.org/licenses/>.
+
+'''pydep - A dependency listing and graphing tool.
+
+pydep generates dependency listings and graphs for Python modules.
+
+'''
+
+import os
+import textwrap
+import subprocess
+import colorsys
+import sys
+
+
+# Check Arguments --------------------------------------------------------------
+if len(sys.argv) < 2 or sys.argv[1] == '-h':
+    print ''
+    print 'Usage: pydep dir [options] [extramodules]'
+    print '    -q = Quiet mode.'
+    print '    -n = Don\'t generate .dot file'
+    print '    -u = Disable grouping'
+    print '    -g = Group character(by default _ is used to split module names)'
+    print ''
+    print 'Examples: pydep ~/projects/foo os time sys'
+    print  '         pydep ~/projects/bar -g .'
+    print ''
+    exit(1)
+
+try:
+    QUIET = sys.argv.index('-q')
+    sys.argv.pop(QUIET)
+    QUIET = True
+
+except ValueError:
+    QUIET = False
+
+try:
+    NODOT = sys.argv.index('-n')
+    sys.argv.pop(NODOT)
+    NODOT = True
+
+except ValueError:
+    NODOT = False
+
+try:
+    NOGROUP = sys.argv.index('-u')
+    sys.argv.pop(NOGROUP)
+    NOGROUP = True
+
+except ValueError:
+    NOGROUP = False
+
+try:
+    GROUPCHAR = sys.argv.index('-g')
+    sys.argv.pop(GROUPCHAR)
+    GROUPCHAR = sys.argv[GROUPCHAR]
+
+except (ValueError, IndexError):
+    GROUPCHAR = '_'
+
+
+if len(sys.argv) < 2:
+    print 'ERROR: No directory specified.'
+    exit(1)
+
+PATH = sys.argv[1]
+NAME = PATH.strip('/').split('/')[-1]
+FILES = os.listdir(PATH)
+EXTRA_MODULES = sys.argv[2:]
+
+
+# Get modules ------------------------------------------------------------------
+MODULES = [i.split('.')[0] for i in FILES if i.endswith('.py')]
+if len(MODULES) == 0:
+    print 'ERROR: No modules in the directory'
+    exit(2)
+
+ALL_MODULES = MODULES + EXTRA_MODULES
+
+
+# Parse dependencies -----------------------------------------------------------
+# ------------------------------------------------------------------------------
+DEPS = {}
+for e, p in [(e.split('.')[0], PATH + '/' + e) for e in FILES]:
+    if os.path.isdir(p) or not p.endswith('.py'):
+        continue
+    
+    # Read file and check for imports
+    with open(p, 'rb') as f:    
+        lines = [i.strip().split(' ') for i in f.read().split('\n')]
+        dependecies = []
+        for line in lines:
+            
+            # import module
+            if line[0] == 'import':
+                if line[1] in ALL_MODULES:
+                    dependecies.append(line[1])
+            
+            elif line[0] == 'from' and line[2] == 'import':
+                parts = line[1].split('.')
+                if len(parts) > 1:
+                    # from module.foo import ...
+                    if parts[0] == NAME and parts[1] in MODULES:
+                        dependecies.append(parts[1])
+                    
+                    # from extra.something import ...
+                    elif parts[0] in EXTRA_MODULES:
+                        dependecies.append(parts[0])
+                
+                # from main import ...
+                elif line[1] == NAME and line[3] in MODULES:
+                    dependecies.append(line[3])
+                
+                # from module import ...
+                elif line[1] in ALL_MODULES:
+                    dependecies.append(line[1])
+        
+        DEPS[e] = sorted({}.fromkeys(dependecies).keys())
+        
+        # Only add extra modules to the graph if they are acutally imported
+        for d in dependecies:
+            if d in EXTRA_MODULES:
+                DEPS[d] = []
+
+
+# Sorted by number of dependencies
+BY_NUMBER = sorted([(i, len(DEPS[i])) for i in DEPS],
+                   key = lambda i: i[1], reverse = True)
+
+if NOGROUP:
+    PLAIN = sorted({}.fromkeys([i for i in DEPS]).keys())
+
+else:
+    PLAIN = sorted({}.fromkeys([i.split(GROUPCHAR)[0] for i in DEPS]).keys())
+
+MAXIMUM_DEPS = max(1.0, max([i[1] for i in BY_NUMBER]) + 0.0)
+
+
+# Show dependency listing ------------------------------------------------------
+# ------------------------------------------------------------------------------
+if not QUIET:
+    INFO_LENGTH = max(11, max([len(i) for i in DEPS]))
+    print '\n'
+    print 'Showing dependencies for "%s" %d(%d+%d) modules in total.' \
+           % (NAME, len(ALL_MODULES), len(MODULES), len(EXTRA_MODULES))
+    
+    print ''
+    print '  %s   ##   dependencies' % ('module name'.rjust(INFO_LENGTH, ' '))
+    print '-' * 80
+    for module, count in BY_NUMBER:
+        info = '  %s   %2d   ' % (module.rjust(INFO_LENGTH, ' '), count)
+        deplist = textwrap.wrap(', '.join(DEPS[module]), 80 - len(info))
+        if len(deplist) > 1:
+            deplist.append('')
+        
+        print '%s%s' % (info, ('\n' + ' ' * len(info)).join(deplist))
+    
+    print ''
+
+# Exit if no graph should be generated
+if NODOT:
+    exit(0)
+
+
+# Generate enough unique colors ------------------------------------------------
+# ------------------------------------------------------------------------------
+COLORS_COUNT = (len(PLAIN) // 2) + 1
+COLORS = []
+TEXT_COLORS = []
+for h in range(0, COLORS_COUNT):
+    for v in range(0, 2):
+        # Get RGB from the HSV
+        r, g, b = colorsys.hsv_to_rgb(h / (10.0 * (COLORS_COUNT / 10.0)),
+                                      1.0, (v + 1) / 2.0)
+        
+        # Convert to HEX
+        rgb = (r * 255, g * 255, b * 255)
+        COLORS.append(''.join([hex(int(i))[2:].ljust(2, '0') for i in rgb]))
+        
+        # Black or white text based on the lightness of the color
+        tc = 'ffffff' if colorsys.rgb_to_hls(r, g, b)[1] < 0.5 else '000000'
+        TEXT_COLORS.append(tc)
+
+
+# Generate the .dot file -------------------------------------------------------
+# ------------------------------------------------------------------------------
+with open('%s.dot' % NAME, 'wb') as f:
+    f.write('digraph dependencies {\n')
+    f.write('nodesep=0.1\n')
+    
+    # Nodes
+    for module, count in BY_NUMBER:
+        group = module if NOGROUP else module.split(GROUPCHAR)[0]
+        color = COLORS[PLAIN.index(group)]
+        textcolor = TEXT_COLORS[PLAIN.index(group)]
+        
+        size = (count / MAXIMUM_DEPS) * 2 + 0.5
+        font = 10 + (count / MAXIMUM_DEPS) * 20
+        f.write(('%s [group="%s", width="%1.2f", height="%1.2f", color="#%s", '
+                'fontsize="%d", style="filled,bold", fillcolor="#%s", '
+                'fontcolor="#%s"];\n') \
+                % (module, group, size, size, color, font, color, textcolor))
+    
+    # Edges
+    for e in DEPS:
+        for i in DEPS[e]:
+            group = i if NOGROUP else i.split(GROUPCHAR)[0]
+            color = PLAIN.index(group)
+            f.write('%s -> %s [color="#%s"];\n' % (i, e, COLORS[color]))
+    
+    f.write('}\n')
+
+# Try to generate the SVG ------------------------------------------------------
+# ------------------------------------------------------------------------------
+try:
+    print 'Generating Graph...',
+    subprocess.call(['dot', '-Tsvg', '%s.dot' % NAME, '-o', '%s.svg' % NAME])
+    print 'done!'
+
+except OSError:
+    print 'ERROR: Could not generate .svg due to missing "dot".'
+
