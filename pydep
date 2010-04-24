@@ -41,6 +41,8 @@ if len(sys.argv) < 2 or sys.argv[1] == '-h':
     print '    -u = Disable grouping'
     print '    -g = Group character(by default _ is used to split module names)'
     print '    -d = Density of the graph(10=very dense, 0=very loose, default=9)'
+    print '   -sl = Sort module list by linecount'
+    print '   -si = Sort module list by in count'
     print ''
     print 'Examples: pydep ~/projects/foo os time sys'
     print  '         pydep ~/projects/bar -g .'
@@ -89,6 +91,21 @@ try:
 
 except ValueError:
     DENSITY = 9
+
+SORT_MODE = 'out'
+try:
+    sys.argv.pop(sys.argv.index('-sl'))
+    SORT_MODE = 'lines'
+
+except ValueError:
+    pass
+
+try:
+    sys.argv.pop(sys.argv.index('-si'))
+    SORT_MODE = 'in'
+
+except ValueError:
+    pass
 
 
 if len(sys.argv) < 2:
@@ -196,12 +213,14 @@ DEPS = {}
 PARTLY = {}
 USED = {}
 STARS = {}
+LINECOUNT = {}
 for e, p in [(e.split('.')[0].replace('-', '_'), PATH + '/' + e) for e in FILES]:
     if os.path.isdir(p):
         DEPS[e] = []
         USED[e] = []
         PARTLY[e] = {}
         STARS[e] = []
+        LINECOUNT[e] = '?'
         continue
         
     elif not p.endswith('.py'):
@@ -209,7 +228,9 @@ for e, p in [(e.split('.')[0].replace('-', '_'), PATH + '/' + e) for e in FILES]
     
     # Read file and check for imports
     with open(p, 'rb') as f:
-        data = remove_string_comments(f.read())
+        data = f.read()
+        LINECOUNT[e] = data.count('\n')    
+        data = remove_string_comments(data)
         lines = [i.strip() for i in data.split('\n')]
         lines = [i.split(' ') for i in lines if i.startswith('import') or i.startswith('from')]
         dependecies = []
@@ -260,11 +281,28 @@ for e, p in [(e.split('.')[0].replace('-', '_'), PATH + '/' + e) for e in FILES]
             if d in EXTRA_MODULES:
                 DEPS[d] = []
 
+# Others
+OTHERS = {}
+for i in DEPS.keys():
+    others = 0
+    for e in DEPS:
+        if i in DEPS[e]:
+            others += 1
+
+    OTHERS[i] = others
 
 # Sorted by number of dependencies
-BY_NUMBER = sorted([(i, len(DEPS[i])) for i in DEPS],
-                   key = lambda i: i[1], reverse = True)
+if SORT_MODE == 'out':
+    SORTED = sorted([(i, len(DEPS[i])) for i in DEPS],
+                    key = lambda i: i[1], reverse = True)
 
+elif SORT_MODE == 'in':
+    SORTED = sorted([(i, OTHERS[i]) for i in DEPS],
+                    key = lambda i: i[1], reverse = True)
+
+elif SORT_MODE == 'lines':
+    SORTED = sorted([(i, LINECOUNT[i]) for i in DEPS],
+                    key = lambda i: i[1], reverse = True)
 
 # Grouping
 def get_group(module):
@@ -275,7 +313,7 @@ def get_group(module):
 
 PLAIN = sorted({}.fromkeys([get_group(i) for i in DEPS]).keys())
 
-MAXIMUM_DEPS = max(1.0, max([i[1] for i in BY_NUMBER]) + 0.0)
+MAXIMUM_DEPS = max(1.0, max([len(DEPS[i]) for i in DEPS.keys()]) + 0.0)
 
 
 # Show dependency listing ------------------------------------------------------
@@ -283,7 +321,7 @@ MAXIMUM_DEPS = max(1.0, max([i[1] for i in BY_NUMBER]) + 0.0)
 PARSE_TIME = time.time() - PARSE_START
 
 if not QUIET:
-    INFO_LENGTH = max(11, max([len(i) for i in DEPS]))
+    INFO_LENGTH = max(11, max([len('%s(%s)' % (i, LINECOUNT[i])) for i in DEPS]))
     print '\n'
     print 'Showing dependencies for "%s" %d(%d+%d) modules in total\nParsed in %1.2f seconds.' \
            % (NAME, len(ALL_MODULES), len(MODULES), len(EXTRA_MODULES), PARSE_TIME)
@@ -291,13 +329,11 @@ if not QUIET:
     print ''
     print '  %s   IN  OUT   dependencies' % ('module name'.rjust(INFO_LENGTH, ' '))
     print '-' * 80
-    for module, count in BY_NUMBER:
-        others = 0
-        for i in DEPS:
-            if module in DEPS[i]:
-                others += 1
-    
-        info = '  %s   %2d   %2d   ' % (module.rjust(INFO_LENGTH, ' '),
+    for module, count in SORTED:
+        count = len(DEPS[module])
+        others = OTHERS[module]
+        title = '%s(%s)' % (module, LINECOUNT[module])
+        info = '  %s   %2d   %2d   ' % (title.rjust(INFO_LENGTH, ' '),
                                         count, others)
         
         deps = [i for i in DEPS[module]]
@@ -352,18 +388,15 @@ with open('%s.dot' % NAME, 'wb') as f:
     f.write('nodesep=%1.1f\n' % (1.0 - DENSITY / 10.0))
     
     # Nodes
-    for module, count in BY_NUMBER:
+    for module, count in SORTED:
         group = get_group(module)
         color = COLORS[PLAIN.index(group)]
         textcolor = TEXT_COLORS[PLAIN.index(group)]
         
-        others = 0
         unused = ''
         star = ''
-        for i in DEPS:
-            if module in DEPS[i]:
-                others += 1
-                
+        count = len(DEPS[module])
+        others = OTHERS[module]
         for i in DEPS[module]:
             if not i in USED[module]:
                 unused = '?'
@@ -391,8 +424,8 @@ with open('%s.dot' % NAME, 'wb') as f:
                 'fontsize="%d", style="filled,bold", fillcolor="#%s", '
                 'fontcolor="#%s", label="%s", shape="%s"];\n') \
                 % (module, group, size, size, color, font, color, textcolor,
-                   '%s%s\\n%s%s%s%s%s' % (module, me, part, unused, star, 
-                                        count, others), shape))
+                   '%s%s\\n%s%s%s%s%s\\n%sL' % (module, me, part, unused, star, 
+                                        count, others, str(LINECOUNT[module])), shape))
     
     # Edges
     for e in DEPS:
